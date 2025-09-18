@@ -8,9 +8,6 @@ GEONODE_API_URL = "http://proxylist.geonode.com/api/proxy-list?limit=50&page=1&s
 # منبع دوم: ProxyScrape (پراکسی های HTTP)
 PROXYSCRAPE_API_URL = "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all"
 
-# منبع سوم: ProxyScrape (پراکسی های HTTP)
-// PROXYSCRAPE_API_URL = ""
-
 # --- قالب فایل PAC ---
 # از f-string برای جایگذاری لیست پراکسی‌ها در این قالب استفاده می‌کنیم
 PAC_TEMPLATE = """
