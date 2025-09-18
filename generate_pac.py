@@ -12,10 +12,10 @@ PROXYSCRAPE_SOCKS5_API_URL = "https://api.proxyscrape.com/v2/?request=getproxies
 PROXIFLY_API_URL = "https://api.proxifly.dev/v1/proxies/all"
 PUBPROXY_API_URL = "http://pubproxy.com/api/proxy?limit=20&format=json&type=http,socks4,socks5"
 
-TEST_URL = "http://www.google.com/generate_204"
-MAX_PROXIES_IN_PAC = 50
+TEST_URL = "http://detectportal.firefox.com/success.txt"
+MAX_PROXIES_IN_PAC = 200
 RETRY_COUNT = 2
-TIMEOUT = 10
+TIMEOUT = 20
 
 PAC_TEMPLATE = """
 function FindProxyForURL(url, host) {{
