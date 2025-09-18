@@ -8,25 +8,26 @@ GEONODE_API_URL = "http://proxylist.geonode.com/api/proxy-list?limit=50&page=1&s
 # منبع دوم: ProxyScrape (پراکسی های HTTP)
 PROXYSCRAPE_API_URL = "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all"
 
-# --- قالب فایل PAC ---
-# از f-string برای جایگذاری لیست پراکسی‌ها در این قالب استفاده می‌کنیم
+
+# --- قالب فایل PAC (با curly braces اصلاح شده) ---
+# Note: {{ and }} are used to escape the braces for Python's .format() method.
 PAC_TEMPLATE = """
-function FindProxyForURL(url, host) {
+function FindProxyForURL(url, host) {{
     // Bypass local IPs and direct connections
     if (isPlainHostName(host) ||
         shExpMatch(host, "*.local") ||
         isInNet(dnsResolve(host), "127.0.0.1", "255.255.255.255") ||
         isInNet(dnsResolve(host), "10.0.0.0", "255.0.0.0") ||
         isInNet(dnsResolve(host), "172.16.0.0", "255.240.0.0") ||
-        isInNet(dnsResolve(host), "192.168.0.0", "255.255.0.0")) {
+        isInNet(dnsResolve(host), "192.168.0.0", "255.255.0.0")) {{
         return "DIRECT";
-    }
+    }}
 
     // --- PROXY CHAIN ---
     // Generated automatically on: {generation_date}
     // Proxies will be inserted here by the script.
     return "{proxy_chain}";
-}
+}}
 """
 
 def get_geonode_proxies():
