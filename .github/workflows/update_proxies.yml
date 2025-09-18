@@ -1,42 +1,38 @@
 name: Update PAC File with Fresh Proxies
 
 on:
-  # این اکشن را هر ساعت اجرا کن
   schedule:
     - cron: '0 * * * *'
-  # همچنین به شما اجازه می‌دهد تا به صورت دستی آن را از تب Actions اجرا کنید
   workflow_dispatch:
+
+# این بخش جدید است و مشکل را حل می‌کند
+permissions:
+  contents: write
 
 jobs:
   build-and-commit:
     runs-on: ubuntu-latest
     steps:
-      # 1. کد مخزن را دانلود می‌کند
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2. پایتون را آماده می‌کند
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      # 3. کتابخانه مورد نیاز اسکریپت (requests) را نصب می‌کند
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests
 
-      # 4. اسکریپت پایتون را برای ساخت فایل PAC جدید اجرا می‌کند
       - name: Run script to generate PAC file
         run: python generate_pac.py
 
-      # 5. تغییرات جدید در فایل dynamic.pac را به مخزن کامیت و پوش می‌کند
       - name: Commit and push if there are changes
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add dynamic.pac
-          # فقط در صورتی کامیت کن که تغییری وجود داشته باشد
           git diff --staged --quiet || git commit -m "Auto-update PAC file with fresh proxies"
           git push
