@@ -3,14 +3,17 @@ import datetime
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+import socks
 import socket
 
-# --- آدرس API ها ---
+# --- تنظیمات ---
 GEONODE_API_URL = "http://proxylist.geonode.com/api/proxy-list?limit=100&page=1&sort_by=speed&sort_type=asc&protocols=http,https,socks5"
 PROXYSCRAPE_API_URL = "https://api.proxyscrape.com/v2/?request=getproxies&protocol=all&timeout=5000&country=all"
 
-TEST_URL = "http://www.google.com/"
-MAX_PROXIES_IN_PAC = 50
+TEST_URL = "http://www.google.com/generate_204"
+MAX_PROXIES_IN_PAC = 100
+RETRY_COUNT = 5
+TIMEOUT = 10
 
 PAC_TEMPLATE = """
 function FindProxyForURL(url, host) {{
@@ -29,6 +32,7 @@ function FindProxyForURL(url, host) {{
 }}
 """
 
+# --- دریافت پراکسی‌ها ---
 def get_geonode_proxies():
     proxies = set()
     try:
@@ -57,30 +61,32 @@ def get_proxyscrape_proxies():
         print(f"Error fetching ProxyScrape proxies: {e}")
     return list(proxies)
 
-def test_proxy_speed(proxy):
-    """تست اتصال و اندازه گیری زمان پاسخ"""
-    try:
-        start = time.time()
-        proxies = {
-            "http": f"http://{proxy}",
-            "https": f"http://{proxy}"
-        }
-        r = requests.get(TEST_URL, proxies=proxies, timeout=5)
-        if r.status_code == 204:
-            elapsed = time.time() - start
-            return proxy, elapsed
-    except Exception:
-        pass
+# --- تست پراکسی با retry و زمان پاسخ ---
+def test_proxy(proxy_address):
+    for attempt in range(RETRY_COUNT):
+        try:
+            proxies = {
+                "http": f"http://{proxy_address}",
+                "https": f"http://{proxy_address}"
+            }
+            start = time.time()
+            r = requests.get(TEST_URL, proxies=proxies, timeout=TIMEOUT)
+            if r.status_code == 204:
+                elapsed = time.time() - start
+                return proxy_address.strip(), elapsed
+        except Exception:
+            time.sleep(0.5)
     return None
 
+# --- تولید فایل PAC ---
 def generate_pac_file():
     all_proxies = list(set(get_geonode_proxies() + get_proxyscrape_proxies()))
     random.shuffle(all_proxies)
-    print(f"\nTesting {len(all_proxies)} proxies for speed...")
+    print(f"\nTesting {len(all_proxies)} proxies for speed and availability...")
 
     results = []
     with ThreadPoolExecutor(max_workers=50) as executor:
-        future_to_proxy = {executor.submit(test_proxy_speed, p): p for p in all_proxies}
+        future_to_proxy = {executor.submit(test_proxy, p): p for p in all_proxies}
         for future in as_completed(future_to_proxy):
             res = future.result()
             if res:
@@ -106,7 +112,6 @@ def generate_pac_file():
 
     with open("dynamic.pac", "w") as f:
         f.write(pac_content)
-
     print(f"\nPAC file generated: {final_count} proxies active.")
 
 if __name__ == "__main__":
