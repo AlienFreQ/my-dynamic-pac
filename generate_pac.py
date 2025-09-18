@@ -4,7 +4,7 @@ import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
-# --- API های پراکسی (بدون تغییر) ---
+# --- API های پراکسی ---
 GEONODE_API_URL = "http://proxylist.geonode.com/api/proxy-list?limit=100&page=1&sort_by=speed&sort_type=asc&protocols=http,https"
 PROXYSCRAPE_HTTP_API_URL = "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=5000&country=all"
 PROXYSCRAPE_SOCKS4_API_URL = "https://api.proxyscrape.com/v2/?request=getproxies&protocol=socks4&timeout=5000&country=all"
@@ -12,8 +12,13 @@ PROXYSCRAPE_SOCKS5_API_URL = "https://api.proxyscrape.com/v2/?request=getproxies
 PROXIFLY_API_URL = "https://api.proxifly.dev/v1/proxies/all"
 PUBPROXY_API_URL = "http://pubproxy.com/api/proxy?limit=20&format=json&type=http,socks4,socks5"
 
-# --- تنظیمات (بدون تغییر) ---
+# --- تنظیمات ---
+# TEST_URL را روی یک سایت غیر-گوگل و سبک تنظیم کنید
+TEST_URL = "http://detectportal.firefox.com/success.txt" 
 MAX_PROXIES_IN_PAC = 200
+RETRY_COUNT = 2
+TIMEOUT = 20 # زمان بیشتر برای تست پراکسی‌های کندتر
+
 PAC_TEMPLATE = """
 function FindProxyForURL(url, host) {{
     if (isPlainHostName(host) ||
@@ -26,8 +31,7 @@ function FindProxyForURL(url, host) {{
     }}
 
     // Generated automatically on: {generation_date}
-    // Number of proxies (UNTESTED): {proxy_count}
-    // WARNING: These proxies have not been tested for availability.
+    // Number of active proxies: {proxy_count}
     return "{proxy_chain}";
 }}
 """
@@ -41,10 +45,10 @@ def get_geonode_proxies():
         data = response.json().get('data', [])
         for proxy in data:
             ip, port = proxy['ip'], proxy['port']
-            proxies.add(('http', f"{ip}:{port}"))
-        print(f"Fetched {len(proxies)} proxies from Geonode.")
+            proxies.add(('http', f"{{ip}}:{{port}}"))
+        print(f"Fetched {{len(proxies)}} proxies from Geonode.")
     except Exception as e:
-        print(f"Error fetching Geonode proxies: {e}")
+        print(f"Error fetching Geonode proxies: {{e}}")
     return list(proxies)
 
 def get_proxyscrape_http_proxies():
@@ -56,9 +60,9 @@ def get_proxyscrape_http_proxies():
         for line in lines:
             if line:
                 proxies.add(('http', line.strip()))
-        print(f"Fetched {len(proxies)} HTTP proxies from ProxyScrape.")
+        print(f"Fetched {{len(proxies)}} HTTP proxies from ProxyScrape.")
     except Exception as e:
-        print(f"Error fetching ProxyScrape HTTP proxies: {e}")
+        print(f"Error fetching ProxyScrape HTTP proxies: {{e}}")
     return list(proxies)
 
 def get_proxyscrape_socks4_proxies():
@@ -70,9 +74,9 @@ def get_proxyscrape_socks4_proxies():
         for line in lines:
             if line:
                 proxies.add(('socks4', line.strip()))
-        print(f"Fetched {len(proxies)} SOCKS4 proxies from ProxyScrape.")
+        print(f"Fetched {{len(proxies)}} SOCKS4 proxies from ProxyScrape.")
     except Exception as e:
-        print(f"Error fetching ProxyScrape SOCKS4 proxies: {e}")
+        print(f"Error fetching ProxyScrape SOCKS4 proxies: {{e}}")
     return list(proxies)
 
 def get_proxyscrape_socks5_proxies():
@@ -84,9 +88,9 @@ def get_proxyscrape_socks5_proxies():
         for line in lines:
             if line:
                 proxies.add(('socks5', line.strip()))
-        print(f"Fetched {len(proxies)} SOCKS5 proxies from ProxyScrape.")
+        print(f"Fetched {{len(proxies)}} SOCKS5 proxies from ProxyScrape.")
     except Exception as e:
-        print(f"Error fetching ProxyScrape SOCKS5 proxies: {e}")
+        print(f"Error fetching ProxyScrape SOCKS5 proxies: {{e}}")
     return list(proxies)
 
 def get_proxifly_proxies():
@@ -100,10 +104,10 @@ def get_proxifly_proxies():
             port = proxy_info.get('port')
             protocol = proxy_info.get('protocol', 'http').lower()
             if ip and port:
-                proxies.add((protocol, f"{ip}:{port}"))
-        print(f"Fetched {len(proxies)} proxies from Proxifly.")
+                proxies.add((protocol, f"{{ip}}:{{port}}"))
+        print(f"Fetched {{len(proxies)}} proxies from Proxifly.")
     except Exception as e:
-        print(f"Error fetching Proxifly proxies: {e}")
+        print(f"Error fetching Proxifly proxies: {{e}}")
     return list(proxies)
 
 def get_pubproxy_proxies():
@@ -117,18 +121,40 @@ def get_pubproxy_proxies():
             protocol = proxy_info.get('type', 'http').lower()
             if ip_port:
                 proxies.add((protocol, ip_port.strip()))
-        print(f"Fetched {len(proxies)} proxies from PubProxy.")
+        print(f"Fetched {{len(proxies)}} proxies from PubProxy.")
     except Exception as e:
-        print(f"Error fetching PubProxy proxies: {e}")
+        print(f"Error fetching PubProxy proxies: {{e}}")
     return list(proxies)
 
-# --- تابع test_proxy دیگر فراخوانی نمی‌شود ---
-# def test_proxy(...):
-#     ...
 
-# --- تولید PAC (تغییر یافته) ---
+# --- تابع تست پراکسی (بسیار مهم) ---
+def test_proxy(proxy_info):
+    protocol, address = proxy_info
+    proxy_url_map = {
+        'http': f"http://{{address}}",
+        'https': f"http://{{address}}",
+        'socks4': f"socks4://{{address}}",
+        'socks5': f"socks5://{{address}}",
+    }
+    if protocol.lower() not in proxy_url_map:
+        return None
+    proxy_url = proxy_url_map[protocol.lower()]
+    proxies_dict = {"http": proxy_url, "https": proxy_url}
+    for _ in range(RETRY_COUNT):
+        try:
+            start_time = time.time()
+            # تست واقعی با استفاده از TEST_URL
+            r = requests.get(TEST_URL, proxies=proxies_dict, timeout=TIMEOUT)
+            # برای آدرس فایرفاکس، کد 200 و محتوای success نشانه موفقیت است
+            if r.status_code == 200 and "success" in r.text:
+                elapsed = time.time() - start_time
+                return (protocol, address.strip(), elapsed)
+        except Exception:
+            time.sleep(0.5)
+    return None
+
+# --- تولید PAC (با تست فعال) ---
 def generate_pac_file():
-    # مرحله ۱: تمام پراکسی‌ها را دریافت کن
     all_proxies = list(set(
         get_geonode_proxies() +
         get_proxyscrape_http_proxies() +
@@ -138,32 +164,41 @@ def generate_pac_file():
         get_pubproxy_proxies()
     ))
     random.shuffle(all_proxies)
-    print(f"\nFetched a total of {len(all_proxies)} unique proxies.")
-    print("!!! SKIPPING PROXY TEST !!!")
+    print(f"\nFound {{len(all_proxies)}} unique proxies. Now testing for speed and availability...")
     
-    # مرحله ۲: بدون تست، همه را به لیست نهایی اضافه کن
-    if not all_proxies:
-        print("No proxies fetched from APIs.")
+    results = []
+    # تست کردن پراکسی‌ها به صورت موازی
+    with ThreadPoolExecutor(max_workers=100) as executor:
+        future_to_proxy = {executor.submit(test_proxy, p): p for p in all_proxies}
+        for i, future in enumerate(as_completed(future_to_proxy), 1):
+            res = future.result()
+            if res:
+                results.append(res)
+            print(f"\rProgress: {{i}}/{{len(all_proxies)}} | Active Found: {{len(results)}}", end="")
+    
+    print("\n")
+    if not results:
+        print("No active proxies found.")
         proxy_chain_str = "DIRECT"
         final_count = 0
     else:
-        # پراکسی‌ها را به تعداد MAX_PROXIES_IN_PAC محدود کن
-        untested_proxies = all_proxies[:MAX_PROXIES_IN_PAC]
-        final_count = len(untested_proxies)
+        # مرتب‌سازی پراکسی‌های فعال بر اساس سرعت
+        results.sort(key=lambda x: x[2])
+        fastest = results[:MAX_PROXIES_IN_PAC]
+        final_count = len(fastest)
         
         proxy_parts = []
-        for protocol, address in untested_proxies:
+        for protocol, address, _ in fastest:
             proto_upper = protocol.upper()
             if proto_upper in ['HTTP', 'HTTPS']:
-                proxy_parts.append(f"PROXY {address}")
+                proxy_parts.append(f"PROXY {{address}}")
             elif proto_upper == 'SOCKS5':
-                proxy_parts.append(f"SOCKS5 {address}")
+                proxy_parts.append(f"SOCKS5 {{address}}")
             elif proto_upper == 'SOCKS4':
-                proxy_parts.append(f"SOCKS {address}")
+                proxy_parts.append(f"SOCKS {{address}}")
         
         proxy_chain_str = "; ".join(proxy_parts) + "; DIRECT"
-
-    # مرحله ۳: فایل PAC را تولید کن
+        
     generation_date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     pac_content = PAC_TEMPLATE.format(
         generation_date=generation_date,
@@ -173,8 +208,7 @@ def generate_pac_file():
 
     with open("dynamic.pac", "w") as f:
         f.write(pac_content)
-    print(f"PAC file 'dynamic.pac' generated with {final_count} UNTESTED proxies.")
-
+    print(f"PAC file 'dynamic.pac' generated with {{final_count}} ACTIVE and TESTED proxies.")
 
 if __name__ == "__main__":
     generate_pac_file()
