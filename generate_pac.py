@@ -1,87 +1,15 @@
-import requests
-import datetime
-
-# --- آدرس API ها ---
-GEONODE_API_URL = "http://proxylist.geonode.com/api/proxy-list?limit=50&page=1&sort_by=speed&sort_type=asc&protocols=http"
-PROXYSCRAPE_API_URL = "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all"
-
-
-# --- قالب فایل PAC (با curly braces اصلاح شده) ---
-PAC_TEMPLATE = """
-function FindProxyForURL(url, host) {{
+function FindProxyForURL(url, host) {
     // Bypass local IPs and direct connections
     if (isPlainHostName(host) ||
         shExpMatch(host, "*.local") ||
         isInNet(dnsResolve(host), "127.0.0.1", "255.255.255.255") ||
         isInNet(dnsResolve(host), "10.0.0.0", "255.0.0.0") ||
         isInNet(dnsResolve(host), "172.16.0.0", "255.240.0.0") ||
-        isInNet(dnsResolve(host), "192.168.0.0", "255.255.0.0")) {{
+        isInNet(dnsResolve(host), "192.168.0.0", "255.255.0.0")) {
         return "DIRECT";
-    }}
+    }
 
-    // --- PROXY CHAIN ---
-    // Generated automatically on: {generation_date}
-    return "{proxy_chain}";
-}}
-"""
-
-def get_geonode_proxies():
-    """پراکسی ها را از Geonode می گیرد و فرمت می کند"""
-    proxies = set()
-    try:
-        response = requests.get(GEONODE_API_URL, timeout=15)
-        response.raise_for_status()
-        data = response.json().get('data', [])
-        for proxy in data:
-            if 'http' in proxy.get('protocols', []):
-                proxies.add(f"PROXY {proxy['ip']}:{proxy['port']}")
-        print(f"Successfully fetched {len(proxies)} proxies from Geonode.")
-    except requests.RequestException as e:
-        print(f"Error fetching from Geonode: {e}")
-    return list(proxies)
-
-def get_proxyscrape_proxies():
-    """پراکسی ها را از ProxyScrape می گیرد و فرمت می کند"""
-    proxies = set()
-    try:
-        response = requests.get(PROXYSCRAPE_API_URL, timeout=15)
-        response.raise_for_status()
-        # **این بخش اصلاح شده است**
-        # پاسخ متنی را بر اساس خطوط جدید جدا می‌کنیم
-        lines = response.text.strip().splitlines()
-        for line in lines:
-            if line:
-                proxies.add(f"PROXY {line.strip()}")
-        print(f"Successfully fetched {len(proxies)} proxies from ProxyScrape.")
-    except requests.RequestException as e:
-        print(f"Error fetching from ProxyScrape: {e}")
-    return list(proxies)
-
-def generate_pac_file():
-    """فایل PAC نهایی را تولید می کند"""
-    geonode_proxies = get_geonode_proxies()
-    proxyscrape_proxies = get_proxyscrape_proxies()
-
-    all_proxies = geonode_proxies + proxyscrape_proxies
-    
-    if not all_proxies:
-        print("No proxies fetched. Aborting PAC file update.")
-        return
-
-    # پراکسی‌ها را با "; " به هم متصل کرده و در انتها DIRECT را به عنوان fallback قرار می‌دهیم
-    proxy_chain_str = "; ".join(all_proxies) + "; DIRECT"
-    
-    generation_date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    
-    pac_content = PAC_TEMPLATE.format(
-        generation_date=generation_date,
-        proxy_chain=proxy_chain_str
-    )
-    
-    with open("dynamic.pac", "w") as f:
-        f.write(pac_content)
-    
-    print(f"Successfully generated dynamic.pac with {len(all_proxies)} proxies.")
-
-if __name__ == "__main__":
-    generate_pac_file()
+    // --- PROXY CHAIN (Limited to 100 servers) ---
+    // Generated automatically on: 2025-09-18 15:00:42 UTC
+    return "PROXY 185.193.28.104:80; PROXY 185.170.166.101:80; PROXY 185.170.166.137:80; PROXY 104.25.113.241:80; PROXY 104.21.28.164:80; PROXY 104.24.240.56:80; PROXY 185.193.31.158:80; PROXY 104.24.61.68:80; PROXY 185.193.31.14:80; PROXY 104.24.136.68:80; PROXY 185.174.138.60:80; PROXY 104.25.1.158:80; PROXY 104.27.10.222:80; PROXY 104.21.42.56:80; PROXY 104.21.9.168:80; PROXY 104.21.26.43:80; PROXY 185.170.166.161:80; PROXY 185.193.31.122:80; PROXY 104.25.0.181:80; PROXY 104.27.4.220:80; PROXY 104.25.1.66:80; PROXY 185.193.28.190:80; PROXY 104.20.46.112:80; PROXY 104.27.204.84:80; PROXY 185.176.24.129:80; PROXY 104.27.16.119:80; PROXY 104.25.113.36:80; PROXY 185.170.166.105:80; PROXY 104.24.1.22:80; PROXY 185.174.138.15:80; PROXY 104.25.8.139:80; PROXY 104.27.10.209:80; PROXY 104.26.13.157:80; PROXY 185.193.28.36:80; PROXY 185.193.30.186:80; PROXY 185.174.138.220:80; PROXY 104.26.15.85:80; PROXY 104.25.28.146:80; PROXY 185.193.28.33:80; PROXY 185.193.29.163:80; PROXY 104.21.24.112:80; PROXY 104.254.140.13:80; PROXY 104.21.224.98:80; PROXY 104.24.29.20:80; PROXY 104.26.5.116:80; PROXY 104.21.224.175:80; PROXY 185.170.166.59:80; PROXY 185.193.28.105:80; PROXY 104.21.30.167:80; PROXY 104.21.198.73:80; PROXY 188.114.96.106:80; PROXY 156.225.72.111:80; PROXY 172.67.179.191:80; PROXY 104.27.12.250:80; PROXY 23.227.38.4:80; PROXY 104.21.7.166:80; PROXY 104.16.98.202:80; PROXY 104.16.139.188:80; PROXY 160.123.255.164:80; PROXY 104.19.56.82:80; PROXY 66.235.200.177:80; PROXY 104.25.0.152:80; PROXY 172.67.181.85:80; PROXY 185.174.138.143:80; PROXY 172.67.207.163:80; PROXY 216.24.57.53:80; PROXY 195.85.23.164:80; PROXY 162.159.240.72:80; PROXY 104.16.1.208:80; PROXY 198.41.217.142:80; PROXY 45.159.217.8:80; PROXY 104.16.200.160:80; PROXY 104.24.20.13:80; PROXY 159.246.55.24:80; PROXY 104.16.107.17:80; PROXY 198.41.209.235:80; PROXY 104.27.96.132:80; PROXY 172.67.182.84:80; PROXY 45.159.218.129:80; PROXY 62.72.166.133:80; PROXY 199.34.228.72:80; PROXY 104.21.25.210:80; PROXY 185.162.229.209:80; PROXY 172.67.66.6:80; PROXY 104.17.52.59:80; PROXY 141.101.121.238:80; PROXY 89.116.250.45:80; PROXY 199.34.228.215:80; PROXY 172.67.135.45:80; PROXY 185.18.250.214:80; PROXY 104.18.33.178:80; PROXY 104.21.27.134:80; PROXY 104.16.10.40:80; PROXY 45.131.7.102:80; PROXY 185.148.105.205:80; PROXY 194.36.55.124:80; PROXY 198.41.209.142:80; DIRECT";
+}
