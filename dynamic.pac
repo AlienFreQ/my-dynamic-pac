@@ -9,7 +9,7 @@ function FindProxyForURL(url, host) {
         return "DIRECT";
     }
 
-    // Generated automatically on: 2025-12-01 16:19:41 UTC
+    // Generated automatically on: 2025-12-01 17:17:54 UTC
     // Number of active proxies: 0
     return "DIRECT";
 }
